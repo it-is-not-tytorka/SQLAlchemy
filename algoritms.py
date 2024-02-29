@@ -1,71 +1,54 @@
-import datetime
+from faker import Faker
 from sqlalchemy import (
     ForeignKey,
-    Date,
     String,
     Integer,
     Table,
     Column,
     MetaData,
     create_engine,
-    select,
+    insert,
+    Connection,
 )  # import engine to create connections with db
-from sqlalchemy.orm import as_declarative, mapped_column, Mapped, Session, declared_attr
+from sqlalchemy.dialects import postgresql
 
-url = "postgresql+psycopg://postgres:Konorra9@127.0.0.1:5432/northwind"
+url = "postgresql+psycopg://postgres:Konorra9@127.0.0.1:5432/postgres"
 engine = create_engine(url, echo=True)  # ready to connect
 metadata = MetaData()  # one metadata = one dataase
+fake = Faker()
 
-
-user_table = Table(
-    "users",
+clients_table = Table(
+    "clients",
     metadata,
-    Column("id", Integer, primary_key=True),
-    Column("user_name", String),
-    Column("date_registration", Date),
-    Column("team_id", Integer, ForeignKey("teams.id")),
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("first_name", String, nullable=True),
+    Column("last_name", String, nullable=True),
 )
-team_table = Table(
-    "teams",
+orders_table = Table(
+    "orders",
     metadata,
-    Column("id", Integer, primary_key=True),
-    Column("team_name", String),
-)
-metadata.create_all(engine)
-
-
-@as_declarative()
-class AbstractModel:
-    id: Mapped[int] = mapped_column(autoincrement=True, primary_key=True)
-
-    @classmethod
-    @declared_attr
-    def __tablename__(cls):
-        return cls.__name__.lower()
-
-
-class UserModel(AbstractModel):
-    __tablename__ = "users"
-    user_name: Mapped[str] = mapped_column()
-    date_registration: Mapped[datetime.date] = mapped_column(Date)
-    team_id: Mapped[int] = mapped_column(ForeignKey("teams.id"))
-
-
-class TeamModel(AbstractModel):
-    __tablename__ = "teams"
-    team_name: Mapped[str] = mapped_column(String)
-
-
-team = TeamModel(team_name="B")
-user = UserModel(
-    id=7, user_name="Trick", team_id=1, date_registration=datetime.date.today()
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("client_id", Integer, ForeignKey("clients.id")),
+    Column("description", String),
 )
 
-with Session(engine) as session:
-    with session.begin():
-        AbstractModel.metadata.create_all(engine)
-    with session.begin():
-        res = session.execute(select(UserModel).where(UserModel.team_id == 1))
-        cursor = res.scalars()
-        for user in cursor.all():
-            print(user.id)
+metadata.create_all(engine)  # create tables
+
+# create insert query
+stmt = insert(orders_table).values(client_id=1, description=fake.text())
+postgres_stmt = stmt.compile(engine, postgresql.dialect())
+
+stmt_wo_values = insert(orders_table)  # without values, possible to insert a few rows
+
+with engine.begin() as connection:  # type: Connection
+    # do insert 'without' values
+    connection.execute(
+        stmt_wo_values,
+        [
+            {"client_id": 2, "description": fake.text()},
+            {"client_id": 2, "description": fake.text()},
+            {"client_id": 2, "description": fake.text()},
+        ],
+    )
+    # do insert with values
+    connection.execute(postgres_stmt)
