@@ -39,6 +39,7 @@ stmt = insert(students_table).values(
     last_name=fake.last_name(),
     class_id=1,
 )
+
 postgres_stmt = stmt.compile(engine, postgresql.dialect())
 with engine.begin() as connection:   # type: Connection  # this piece of shit gives type hints
     result = connection.execute(
