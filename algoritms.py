@@ -47,7 +47,7 @@ class AbstractModel:
 class UserModel(AbstractModel):
     __tablename__ = "users"
     user_name: Mapped[str] = mapped_column()
-    phone: Mapped["PhoneModel"] = relationship(back_populates="user", uselist=False)
+    phones: Mapped[list["PhoneModel"]] = relationship(back_populates="user", uselist=True)
 
     def __repr__(self):
         return f'User: {self.user_name}'
@@ -56,20 +56,23 @@ class UserModel(AbstractModel):
 class PhoneModel(AbstractModel):
     __tablename__ = 'phones'
     phone_number: Mapped[str] = mapped_column()
-    user: Mapped["UserModel"] = relationship(back_populates="phone", uselist=False)   # uselist=True - Many to one, uselist=False - One to one
+    # if two tables have uselist=False - One to one,
+    # if one table uselist=True and another have False - Many to one
+    user: Mapped["UserModel"] = relationship(back_populates="phones", uselist=False)
     user_fk: Mapped[int] = mapped_column(ForeignKey('users.id'))
 
     def __repr__(self):
         return f"Phone: {self.phone_number=}, {self.user_fk=}"
 
-user = UserModel(user_name='First')
-phone = PhoneModel(phone_number='89009009090')
-user.phone = phone
+# create and upload user and phones. add phones to user
+user = UserModel(id=1, user_name='First')
+phone = PhoneModel(phone_number='80990990909')
+phone2 = PhoneModel(phone_number='9999999')
+user.phones.append(phone)
+user.phones.append(phone2)
 session.add(user)
 session.commit()
 
-users = session.scalars(select(UserModel)).all()
-phones = session.scalars(select(PhoneModel)).all()
-
-print(users)
-print(phones)
+user = session.scalar(select(UserModel).where(UserModel.id==1))
+print(user)
+print(user.phones)
