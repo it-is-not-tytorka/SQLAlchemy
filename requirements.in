@@ -1,0 +1,8 @@
+flask
+sqlalchemy
+python-dotenv
+psycopg
+psycopg_binary
+sqlalchemy_utils
+Flask-SQLAlchemy
+black
