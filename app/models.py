@@ -42,7 +42,9 @@ class Friend(db.Model):
     __tablename__ = "friends"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     name: Mapped[str] = mapped_column(String(40), nullable=False)
-    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False)
+    user_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("users.id"), nullable=False
+    )
     description: Mapped[str] = mapped_column(String(200))
     count_notes: Mapped[int] = mapped_column(Integer, default=0)
     sum_of_notes: Mapped[int] = mapped_column(Integer, default=0)
@@ -54,7 +56,7 @@ class Friend(db.Model):
             "friend_name": self.name,
             "description": self.description,
             "rating": self.calculate_rating(),
-            "notes": self.get_notes()
+            "notes": self.get_notes(),
         }
 
     def calculate_rating(self):
@@ -63,17 +65,21 @@ class Friend(db.Model):
         return f"{self.sum_of_notes/self.count_notes:.2f}"
 
     def get_notes(self):
-        notes = db.session.execute(
-            db.select(Note).where((Note.user_id == self.user_id) & (Note.friend_id == self.id))
-        ).scalars().all()
+        notes = (
+            db.session.execute(
+                db.select(Note).where(
+                    (Note.user_id == self.user_id) & (Note.friend_id == self.id)
+                )
+            )
+            .scalars()
+            .all()
+        )
         notes = [note.to_dict() for note in notes]
         return notes
 
     @classmethod
     def is_valid_id(cls, id):
-        friend = db.session.execute(
-            db.select(cls).where(cls.id == id)
-        ).scalars().all()
+        friend = db.session.execute(db.select(cls).where(cls.id == id)).scalars().all()
         return friend != []
 
 
@@ -97,6 +103,7 @@ class Note(db.Model):
     @staticmethod
     def is_valid_score(score):
         return isinstance(score, int) and int(score) == score and 1 <= score <= 5
+
 
 with app.app_context():
     db.create_all()
