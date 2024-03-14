@@ -5,6 +5,7 @@ from flask import request, Response
 from http import HTTPStatus
 import json
 
+
 @app.post("/user/<int:user_id>/note")
 def note_create(user_id):
     if User.is_valid_id(user_id):
@@ -13,10 +14,21 @@ def note_create(user_id):
         if Friend.is_valid_id(friend_id):
             score = data["score"]
             if Note.is_valid_score(score):
-                note = Note(user_id=user_id, friend_id=friend_id, description=data["description"], score=score)
-                friend = db.session.execute(
-                    db.select(Friend).where(Friend.id == friend_id and Friend.user_id == user_id)
-                ).scalars().all()[0]
+                note = Note(
+                    user_id=user_id,
+                    friend_id=friend_id,
+                    description=data["description"],
+                    score=score,
+                )
+                friend = (
+                    db.session.execute(
+                        db.select(Friend).where(
+                            Friend.id == friend_id and Friend.user_id == user_id
+                        )
+                    )
+                    .scalars()
+                    .all()[0]
+                )
                 friend.count_notes += 1
                 friend.sum_of_notes += data["score"]
                 db.session.add(note)
