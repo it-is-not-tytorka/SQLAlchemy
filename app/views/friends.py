@@ -1,3 +1,5 @@
+from sqlalchemy import desc
+
 from app import app
 from app.db import db
 from app.models import User, Friend
@@ -15,10 +17,7 @@ def friend_create(user_id):
         friend = Friend(user_id=user_id, name=name, description=description)
         db.session.add(friend)
         db.session.commit()
-        response_data = {
-            "message": "Friend has been created successfully",
-            "friend_id": friend.id,
-        }
+        response_data = friend.to_dict()
         return Response(
             response=json.dumps(response_data),
             status=HTTPStatus.CREATED,
@@ -77,7 +76,7 @@ def friend_get(user_id, friend_id):
 def friend_get_all(user_id):
     if User.is_valid_id(user_id):
         friends = db.session.execute(
-            db.select(Friend).where(Friend.user_id == user_id)
+            db.select(Friend).where(Friend.user_id == user_id).order_by(desc(Friend.count_notes))
         ).scalars().all()
         response_data = [friend.to_dict() for friend in friends]
         return Response(

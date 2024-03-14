@@ -14,7 +14,7 @@ class Base(DeclarativeBase):
 
 db = SQLAlchemy(model_class=Base)
 
-
+# there's a URL of your database. for example you can use "sqlite:///project.db"
 DB_URL = f'postgresql+psycopg://{os.getenv('DB_USER_NAME')}:{os.getenv('DB_PASSWORD')}@{os.getenv('DB_HOST')}:{os.getenv('DB_PORT')}/{os.getenv('DB_NAME')}'
 app.config["SQLALCHEMY_DATABASE_URI"] = DB_URL
 db.init_app(app)
