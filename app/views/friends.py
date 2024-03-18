@@ -32,44 +32,22 @@ def friend_create(user_id):
         )
 
 
-@app.get("/user/<int:user_id>/friend/<int:friend_id>")
-def friend_get(user_id, friend_id):
-    if User.is_valid_id(user_id):
-        if Friend.is_valid_id(friend_id):
-            friend = (
-                db.session.execute(
-                    db.select(Friend).where(
-                        Friend.id == friend_id and Friend.user_id == user_id
-                    )
-                )
-                .scalars()
-                .all()
-            )
-            if friend:
-                response_data = friend[0].to_dict()
-                return Response(
-                    response=json.dumps(response_data),
-                    status=HTTPStatus.OK,
-                    content_type="application/json",
-                )
-            else:
-                response_data = {
-                    "error": "User with the provided ID doesn't have friend with the provided friendID"
-                }
-                return Response(
-                    response=json.dumps(response_data),
-                    status=HTTPStatus.NOT_FOUND,
-                    content_type="application/json",
-                )
-        else:
-            response_data = {"error": "No friend found with the provided ID"}
-            return Response(
-                response=json.dumps(response_data),
-                status=HTTPStatus.NOT_FOUND,
-                content_type="application/json",
-            )
+@app.get("/friend/<int:friend_id>")
+def friend_get(friend_id):
+    if Friend.is_valid_id(friend_id):
+        friend = (
+            db.session.execute(
+                db.select(Friend).where(Friend.id == friend_id)
+            ).scalars().all()
+        )
+        response_data = friend[0].to_dict()
+        return Response(
+            response=json.dumps(response_data),
+            status=HTTPStatus.OK,
+            content_type="application/json",
+        )
     else:
-        response_data = {"error": "No user found with the provided ID"}
+        response_data = {"error": "No friend found with the provided ID"}
         return Response(
             response=json.dumps(response_data),
             status=HTTPStatus.NOT_FOUND,
@@ -83,7 +61,7 @@ def friend_get_all(user_id):
         friends = (
             db.session.execute(
                 db.select(Friend)
-                .where(Friend.user_id == user_id)
+                .where((Friend.user_id == user_id) & (Friend.deleted == 0))
                 .order_by(desc(Friend.count_notes))
             )
             .scalars()
@@ -104,27 +82,22 @@ def friend_get_all(user_id):
         )
 
 
-@app.post("/user/<int:user_id>/friend/<int:friend_id>/edit")
-def friend_edit(user_id, friend_id):
+@app.post("/friend/<int:friend_id>/edit")
+def friend_edit(friend_id):
     data = request.get_json()
-    if User.is_valid_id(user_id):
-        if Friend.is_valid_id(friend_id):
-            friend = (
-                db.session.execute(
-                    db.select(Friend).where(
-                        Friend.id == friend_id and User.id == user_id
-                    )
-                )
-                .scalars()
-                .all()[0]
-            )
+    if Friend.is_valid_id(friend_id):
+        friend = (
+            db.session.execute(
+                db.select(Friend).where(Friend.id == friend_id)
+            ).scalars().all()[0]
+        )
+        if friend.deleted == 0:
             for key in data:
-                # we can't change id, user_id and rating of a friend, so we don't touch it
-                if key != "id" and key != "user_id" and key != "rating":
-                    if hasattr(
-                        friend, key
-                    ):  # check if friend has an attr, so we can change it
-                        setattr(friend, key, data[key])
+                # we can change only user's description and his name
+                if key == "description":
+                    setattr(friend, key, data[key])
+                elif key == "name":
+                    setattr(friend, key, data[key])
             db.session.commit()
             response_data = friend.to_dict()
             return Response(
@@ -133,14 +106,14 @@ def friend_edit(user_id, friend_id):
                 content_type="application/json",
             )
         else:
-            response_data = {"error": "No friend found with the provided ID"}
+            response_data = {"error": "Friend with the provided ID was deleted"}
             return Response(
                 response=json.dumps(response_data),
                 status=HTTPStatus.NOT_FOUND,
                 content_type="application/json",
             )
     else:
-        response_data = {"error": "No user found with the provided ID"}
+        response_data = {"error": "No friend found with the provided ID"}
         return Response(
             response=json.dumps(response_data),
             status=HTTPStatus.NOT_FOUND,
@@ -148,36 +121,54 @@ def friend_edit(user_id, friend_id):
         )
 
 
-@app.delete("/user/<int:user_id>/friend/<int:friend_id>/delete")
-def friend_delete(user_id, friend_id):
-    if User.is_valid_id(user_id):
-        if Friend.is_valid_id(friend_id):
-            friend = (
-                db.session.execute(
-                    db.select(Friend).where(
-                        Friend.id == friend_id and Friend.user_id == user_id
-                    )
-                )
-                .scalars()
-                .all()
-            )
-            db.session.delete(friend[0])
+@app.delete("/friend/<int:friend_id>/delete")
+def friend_delete(friend_id):
+    if Friend.is_valid_id(friend_id):
+        friend = (
+            db.session.execute(
+                db.select(Friend).where(Friend.id == friend_id)
+            ).scalars().all()
+        )[0]
+        if friend.deleted == 0:
+            friend.remove()
             db.session.commit()
-            response_data = {"message": "User has been deleted successfully"}
+            response_data = {"message": "Friend has been deleted successfully"}
             return Response(
                 response=json.dumps(response_data),
                 status=HTTPStatus.OK,
                 content_type="application/json",
             )
         else:
-            response_data = {"error": "No friend found with the provided ID"}
+            response_data = {"error": "Friend with the provided ID was deleted"}
             return Response(
                 response=json.dumps(response_data),
                 status=HTTPStatus.NOT_FOUND,
                 content_type="application/json",
             )
     else:
-        response_data = {"error": "No user found with the provided ID"}
+        response_data = {"error": "No friend found with the provided ID"}
+        return Response(
+            response=json.dumps(response_data),
+            status=HTTPStatus.NOT_FOUND,
+            content_type="application/json",
+        )
+
+@app.get("/friend/<int:friend_id>/restore")
+def friend_restore(friend_id):
+    if Friend.is_valid_id(friend_id):
+        friend = db.session.execute(
+            db.select(Friend).where(Friend.id == friend_id)
+        ).scalars().all()[0]
+        friend.restore()
+        db.session.commit()
+        response_data = friend.to_dict()
+        return Response(
+            response=json.dumps(response_data),
+            status=HTTPStatus.OK,
+            content_type="application/json",
+        )
+    else:
+        response_data = {"error": "No friend found with the provided ID"}
         return Response(
             response=json.dumps(response_data),
             status=HTTPStatus.NOT_FOUND,

@@ -6,7 +6,7 @@ from http import HTTPStatus
 import json
 
 
-@app.post("/user/<int:user_id>/note")
+@app.post("/user/<int:user_id>/note/create")
 def note_create(user_id):
     if User.is_valid_id(user_id):
         data = request.get_json()
@@ -22,9 +22,7 @@ def note_create(user_id):
                 )
                 friend = (
                     db.session.execute(
-                        db.select(Friend).where(
-                            Friend.id == friend_id and Friend.user_id == user_id
-                        )
+                        db.select(Friend).where(Friend.id == friend_id)
                     )
                     .scalars()
                     .all()[0]
@@ -61,6 +59,120 @@ def note_create(user_id):
         response_data = {
             "error": "No user found with the provided ID",
         }
+        return Response(
+            response=json.dumps(response_data),
+            status=HTTPStatus.NOT_FOUND,
+            content_type="application/json",
+        )
+
+
+@app.get("/note/<int:note_id>")
+def note_get(note_id):
+    if Note.is_valid_id(note_id):
+        note = db.session.execute(
+            db.select(Note).where(Note.id == note_id)
+        ).scalars().all()
+        response_data = note[0].to_dict()
+        return Response(
+            response=json.dumps(response_data),
+            status=HTTPStatus.OK,
+            content_type="application/json",
+        )
+    else:
+        response_data = {
+            "error": "No note found with the provided ID",
+        }
+        return Response(
+            response=json.dumps(response_data),
+            status=HTTPStatus.NOT_FOUND,
+            content_type="application/json",
+        )
+
+
+
+@app.post("/note/<int:note_id>/edit")
+def note_edit(note_id):
+    if Note.is_valid_id(note_id):
+        note = db.session.execute(
+            db.select(Note).where(Note.id == note_id)
+        ).scalars().all()
+        note = note[0]
+        data = request.get_json()
+        # in a note we can change only description and score
+        for key in data:
+            if key == 'description':
+                note.description = data['description']
+            elif key == "score":
+                # first of all we need to remove old friend's score and add new
+                Friend.change_sum_of_notes(note.friend_id, data["score"] - note.score)
+                # now we can change note's score
+                note.score = data["score"]
+        db.session.commit()
+        response_data = note.to_dict()
+        return Response(
+            response=json.dumps(response_data),
+            status=HTTPStatus.OK,
+            content_type="application/json",
+        )
+    else:
+        response_data = {
+            "error": "No note found with the provided ID",
+        }
+        return Response(
+            response=json.dumps(response_data),
+            status=HTTPStatus.NOT_FOUND,
+            content_type="application/json",
+        )
+
+
+@app.delete("/note/<int:note_id>/delete")
+def note_delete(note_id):
+    if Note.is_valid_id(note_id):
+        note = db.session.execute(
+            db.select(Note).where(Note.id == note_id)
+        ).scalars().all()
+        note = note[0]
+        Friend.change_sum_of_notes(note.friend_id, -note.score)
+        Friend.change_count_notes(note.friend_id, -1)
+        note.remove()
+        db.session.commit()
+        response_data = {
+            "message": "Note has been deleted successfully",
+        }
+        return Response(
+            response=json.dumps(response_data),
+            status=HTTPStatus.OK,
+            content_type="application/json",
+        )
+    else:
+        response_data = {
+            "error": "No note found with the provided ID",
+        }
+        return Response(
+            response=json.dumps(response_data),
+            status=HTTPStatus.NOT_FOUND,
+            content_type="application/json",
+        )
+
+
+@app.get("/note/<int:note_id>/restore")
+def note_restore(note_id):
+    if Note.is_valid_id(note_id):
+        note = db.session.execute(
+            db.select(Note).where(Note.id == note_id)
+        ).scalars().all()[0]
+        note.restore()
+        Friend.change_count_notes(note.friend_id, 1)
+        Friend.change_sum_of_notes(note.friend_id, note.score)
+        db.session.commit()
+        response_data = note.to_dict()
+        return Response(
+            response=json.dumps(response_data),
+            status=HTTPStatus.OK,
+            content_type="application/json",
+        )
+    else:
+        response_data = {"error": "No note found with the provided ID"}
         return Response(
             response=json.dumps(response_data),
             status=HTTPStatus.NOT_FOUND,
