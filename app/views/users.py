@@ -46,9 +46,9 @@ def user_create():
         )
 
 
-@app.get("/user/<int:id>")
-def user_get(id):
-    user = db.session.execute(db.select(User).where(User.id == id)).scalars().all()
+@app.get("/user/<int:user_id>")
+def user_get(user_id):
+    user = db.session.execute(db.select(User).where(User.id == user_id)).scalars().all()
     if user:
         response_data = user[0].to_dict()
         return Response(
@@ -67,10 +67,10 @@ def user_get(id):
     )
 
 
-@app.post("/user/<int:id>/edit")
-def user_edit(id: int):
+@app.get("/user/<int:user_id>/edit")
+def user_edit(user_id: int):
     data = request.get_json()
-    if User.is_valid_id(id):
+    if User.is_valid_id(user_id):
         # if user want to change email we must check that it's unique
         # if there's no new email in data, or there's a new email, and it's unique we just set new attrs
         # if there's a not unique email in data we raise error CONFLICT and don't commit any changes
@@ -78,16 +78,16 @@ def user_edit(id: int):
             "email" in data and User.is_unique_email(data["email"])
         ):
             user = (
-                db.session.execute(db.select(User).where(User.id == id))
+                db.session.execute(db.select(User).where(User.id == user_id))
                 .scalars()
                 .all()[0]
             )
             # here we edit user's info. but because we don't know what he wants to edit we use setattr and extra logic
             for key in data:
-                if key != "id":  # we can't change user's id, and it couldn't be in data
-                    if hasattr(
-                        user, key
-                    ):  # check that user has this attr, so we can change it
+                # we can't change user's id, and it couldn't be in data
+                if key != "id":
+                    # check that user has this attr, so we can change it
+                    if hasattr(user, key):
                         setattr(user, key, data[key])
             db.session.commit()
             response_data = user.to_dict()
@@ -114,9 +114,10 @@ def user_edit(id: int):
         )
 
 
+'''
 @app.delete("/user/<int:id>/delete")
-def user_delete(id):
-    user = db.session.execute(db.select(User).where(User.id == id)).scalars().all()
+def user_delete(user_id):
+    user = db.session.execute(db.select(User).where(User.id == user_id)).scalars().all()
     if user:
         db.session.delete(user[0])
         db.session.commit()
@@ -133,3 +134,4 @@ def user_delete(id):
             status=HTTPStatus.NOT_FOUND,
             content_type="application/json",
         )
+'''
