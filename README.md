@@ -1,19 +1,15 @@
 # Flask + SQLAlchemy
----
 This project is my first experience when I worked with a database. 
 I realized backend of a service which allows to create a card of your friend and add notes about this friend.
 For example, you can create a friend card which has name "Bob" and description "My friend from a job". 
 Now you can add notes after you meet him to remember something. Just create a note with description 
 "He helped me with a task and saved my life" and add score "5". Here we are. Create more friends and notes to manage 
 your relationships.   
----
-# First of all
----
+# First of all   
 To run this application clone this repository, install `requirements.txt`, set your database URL in
 a python module `.app/db.py` and run `run.py` module. You can check how this application works by 
 using Postman. For this you can find a file `FlaskSQL.postman_collection.json` in this repo and import 
-to your own postman workspace and not write urls by yourself.
----
+to your own postman workspace and not write urls by yourself.   
 # Database
 This is a diagram of tables in a database. 
 At this moment database run on a local machine. **Don't forget to set your database URL in** `.app/db.py`.
