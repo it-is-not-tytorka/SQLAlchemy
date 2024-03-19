@@ -1,18 +1,23 @@
-from sqlalchemy import Integer, String, ForeignKey
-from sqlalchemy.orm import Mapped, mapped_column
 from app.db import db
 from app import app
+from sqlalchemy import Integer, String, ForeignKey
+from sqlalchemy.orm import Mapped, mapped_column
 
 
 class User(db.Model):
     __tablename__ = "users"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    username: Mapped[str] = mapped_column(String(40), unique=True, nullable=False)
+    username: Mapped[str] = mapped_column(String(40), nullable=False)
     email: Mapped[str] = mapped_column(String(40), nullable=False)
     password: Mapped[str] = mapped_column(String(20), nullable=False)
 
     def to_dict(self) -> dict:
-        return {"user_id": self.id, "username": self.username, "email": self.email}
+        return {
+            "user_id": self.id,
+            "username": self.username,
+            "email": self.email,
+            "password": self.password,
+        }
 
     @staticmethod
     def is_unique_email(email: str) -> bool:
@@ -24,17 +29,10 @@ class User(db.Model):
         return user == []
 
     @classmethod
-    def is_unique_username(cls, username: str) -> bool:
-        user = (
-            db.session.execute(db.select(cls).where(cls.username == username))
-            .scalars()
-            .all()
-        )
-        return user == []
-
-    @classmethod
     def is_valid_id(cls, user_id: int) -> bool:
-        user = db.session.execute(db.select(cls).where(cls.id == user_id)).scalars().all()
+        user = (
+            db.session.execute(db.select(cls).where(cls.id == user_id)).scalars().all()
+        )
         return user != []
 
 
@@ -48,6 +46,9 @@ class Friend(db.Model):
     description: Mapped[str] = mapped_column(String(200))
     count_notes: Mapped[int] = mapped_column(Integer, default=0)
     sum_of_notes: Mapped[int] = mapped_column(Integer, default=0)
+    # if deleted = 0 then a friend isn't deleted
+    # if deleted = 1 then a friend is deleted, and we can't see him running /friend, /friend/all
+    # or edit him running /friend/edit
     deleted: Mapped[int] = mapped_column(Integer, default=0)
 
     def to_dict(self) -> dict:
@@ -56,14 +57,20 @@ class Friend(db.Model):
             "friend_id": self.id,
             "friend_name": self.name,
             "description": self.description,
-            "rating": self.calculate_rating(),
+            "rating": self.calculate_rating(self.id),
             "notes": self.get_notes(),
         }
 
-    def calculate_rating(self) -> str:
-        if self.count_notes == 0:
+    @classmethod
+    def calculate_rating(cls, friend_id: int) -> str:
+        friend = (
+            db.session.execute(db.select(cls).where(cls.id == friend_id))
+            .scalars()
+            .all()[0]
+        )
+        if friend.count_notes == 0:
             return "Not enough data"
-        return f"{self.sum_of_notes/self.count_notes:.2f}"
+        return f"{friend.sum_of_notes/friend.count_notes:.2f}"
 
     def get_notes(self) -> list[dict]:
         notes = (
@@ -84,19 +91,30 @@ class Friend(db.Model):
 
     @classmethod
     def change_sum_of_notes(cls, friend_id: int, value: int | float) -> None:
-        friend = db.session.execute(db.select(cls).where(cls.id == friend_id)).scalars().all()[0]
+        friend = (
+            db.session.execute(db.select(cls).where(cls.id == friend_id))
+            .scalars()
+            .all()[0]
+        )
         friend.sum_of_notes += value
 
     @classmethod
     def change_count_notes(cls, friend_id: int, value: int) -> None:
-        friend = db.session.execute(db.select(cls).where(cls.id == friend_id)).scalars().all()[0]
+        friend = (
+            db.session.execute(db.select(cls).where(cls.id == friend_id))
+            .scalars()
+            .all()[0]
+        )
         friend.count_notes += value
 
     @classmethod
     def is_valid_id(cls, friend_id: int) -> bool:
-        friend = db.session.execute(db.select(cls).where(cls.id == friend_id)).scalars().all()
+        friend = (
+            db.session.execute(db.select(cls).where(cls.id == friend_id))
+            .scalars()
+            .all()
+        )
         return friend != []
-
 
 
 class Note(db.Model):
@@ -106,6 +124,9 @@ class Note(db.Model):
     friend_id: Mapped[int] = mapped_column(Integer, ForeignKey("friends.id"))
     description: Mapped[str] = mapped_column(String(200), nullable=False)
     score: Mapped[int] = mapped_column(Integer, nullable=False)
+    # if deleted = 0 then a note isn't deleted
+    # if deleted = 1 then a note is deleted, and we can't see it running /friend or /friend/all
+    # also we can't edit it
     deleted: Mapped[int] = mapped_column(Integer, default=0)
 
     def to_dict(self) -> dict:
@@ -125,15 +146,16 @@ class Note(db.Model):
 
     @staticmethod
     def is_valid_score(score: int) -> bool:
-        return isinstance(score, int) and int(score) == score and 1 <= score <= 5
+        return isinstance(score, int) and 1 <= score <= 5
 
     @staticmethod
     def is_valid_id(note_id: int) -> bool:
-        note = db.session.execute(
-            db.select(Note).where(Note.id == note_id)
-        ).scalars().all()
-        return note != []
-
+        note = (
+            db.session.execute(db.select(Note).where(Note.id == note_id))
+            .scalars()
+            .all()
+        )
+        return bool(note)
 
 
 with app.app_context():
